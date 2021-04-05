@@ -1,0 +1,7 @@
+setup.py
+swl/__init__.py
+swl.egg-info/PKG-INFO
+swl.egg-info/SOURCES.txt
+swl.egg-info/dependency_links.txt
+swl.egg-info/not-zip-safe
+swl.egg-info/top_level.txt
