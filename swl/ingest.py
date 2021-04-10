@@ -139,7 +139,7 @@ countries ={'Algeria':      ['Algeria','Argelia'],
             'Zambia':       ['Zambia'] ,
             'Zimbabwe':     ['Zimbabwe']}
 
-def ingest_scielo_folder( data_folder = pathlib.Path.cwd()/'data', encoding='unknown' ):
+def ingest_folder( data_folder = pathlib.Path.cwd()/'data', database, encoding='unknown',  ):
     '''
     Ingests the scielo files in data_folder and returns a single dataframe
     with all the records
@@ -166,8 +166,10 @@ def ingest_scielo_folder( data_folder = pathlib.Path.cwd()/'data', encoding='unk
             rawdata = open (data_file,"rb").read()
             encoding = chardet.detect(rawdata)['encoding']
             print('Encoding: ', encoding)
-        df_list.append(ingest_scielo_file(data_file, encoding))
-
+        if database=='scielo':
+            df_list.append(ingest_scielo_file(data_file, encoding))
+        elif database == 'wos':
+            df_list.append(ingest_wos_file(data_file, encoding))
     df = pd.concat(df_list)
 
     return df
@@ -240,6 +242,94 @@ def ingest_scielo_file(file_name, encoding):
     print(len(df))
     return df
 
+def ingest_wos_file(file_name, encoding):
+    '''
+    Ingest an individual data file with data from wos
+        Input:
+            file_name: valid name of the file to be ingested
+            encoding: file encoding
+
+        Returns:
+            df: pandas data frame with the data in the ingested file
+    '''
+    #print('Ingesting individual file: ',file_name)
+    df = pd.read_csv(file_name,
+                     encoding=encoding,
+                     index_col=False,
+                     error_bad_lines=False,
+                     quoting = csv.QUOTE_NONE,
+                     sep='\t')
+    columns={'PT':'publication type',
+         'AU': 'authors',
+         'BA': 'book authors',
+         'BE': 'editors',
+         'GP': 'book group authors',
+         'AF': 'author full name',
+         'BF': 'book authors full name',
+         'CA': 'group authors',
+         'TI': 'title',
+         'SO': 'source',
+         'SE': 'book series title',
+         'BS': 'book series subtitle',
+         'LA': 'language',
+         'DT': 'document type',
+         'CT': 'conference title',
+         'CY': 'conference date',
+         'CL': 'conference location',
+         'SP': 'conference sponsors',
+         'HO': 'conference host',
+         'DE': 'english author keywords',
+         'ID': 'keywords plus',
+         'AB': 'abstract',
+         'C1': 'addresses',
+         'RP': 'reprint address',
+         'EM': 'emails ',
+         'RI': 'research id number',
+         'OI': 'orchid id',
+         'FU': 'funding agency and grant number',
+         'FX': 'funding text',
+         'CR': 'cited references',
+         'NR': 'cited references count',
+         'TC': 'scielo citation index times cited count',
+         'Z9': 'total times cited count',
+         'U1': 'usage count 180',
+         'U2': 'usage count 2013',
+         'PU': 'publisher',
+         'PI': 'publisher city',
+         'PA': 'publisher address',
+         'SN': 'issn',
+         'EI': 'eissn',
+         'BN': 'isbn',
+         'J9': '29-character source abbreviation',
+         'JI': 'iso source abbreviation',
+         'PD': 'pub date',
+         'PY': 'pub year',
+         'VL': 'volume',
+         'IS': 'issue',
+         'PN': 'part number',
+         'SU': 'supplement',
+         'SI': 'special issue',
+         'MA': 'meeting abstract',
+         'BP': 'beggining page',
+         'EP': 'ending page',
+         'AR': 'article number',
+         'DI': 'doi',
+         'D2': 'book doi',
+         'EA': 'early access date',
+         'PG': 'page count',
+         'WC': 'wos categories',
+         'SC': 'research areas',
+         'GA': 'document delivery number',
+         'UT': 'accession number',
+         'PM': 'pubmed id',
+         'OA': 'open access indicator',
+         'HC': 'highly cited',
+         'HP': 'hot paper',
+         'DA': 'report date'}
+    df=df.rename(columns, axis=1)
+    print(len(df))
+    return df
+
 def get_scielo_dicts(df):
     authors = {}
     papers  = {}
@@ -296,6 +386,72 @@ def get_scielo_dicts(df):
             institution = addresses[author]
             if institution not in authors[author]['institutions']:
                 authors[author]['institutions'].append(institution)
+
+        # Take care of institutions
+        institution_names_list=[]
+        for institution in institution_list:
+            institution_name = institution.split(',')[0].strip(' ')
+            institution_names_list.append(institution_name)
+            if institution_name not in institutions:
+                country = institution.split(',')[-1].strip(' ')
+                country = get_valid_country(country)
+                institutions[institution_name]=\
+                    {'papers':[id],
+                    'country':country}
+            else:
+                institutions[institution_name]['papers'].append(id)
+        papers[id]['institutions']=institution_names_list
+
+    return authors, papers, institutions
+
+def get_wos_dicts(df):
+    authors = {}
+    papers  = {}
+    institutions = {}
+
+    for idx,row in df.iterrows():
+        # Extract fields
+        id     = row['accession number']
+        title  = row['title']
+        source = row['source']
+        language = row['language']
+        english_author_keywords = \
+                get_english_author_keywords(row['english author keywords'])
+        authors_list = get_author_list(row['author full name'])
+        try:
+            year = int(row['pub year'])
+        except:
+            continue
+        addresses = get_addresses(row['addresses'])
+        institution_list = list(set(list(addresses.values())))
+
+        # Take care of papers dict
+        papers[id] = {
+               'title':title,
+               'authors': authors_list,
+               'year': year,
+               'source': source,
+               'language': language,
+               'english author keywords':english_author_keywords
+                    }
+
+        # Fill the authors dict with the authors as keys
+        # and assign the paper to the author
+        for author in authors_list:
+            if author not in authors:
+                authors[author] = {'papers_list':[id]}
+                authors[author]['institutions']  = []
+            else:
+                authors[author]['papers_list'].append(id)
+
+        # Add institutions to author (unless they are already there)
+        for author in addresses:
+            institution = addresses[author]
+            if author not in authors:
+                print('Possible bad input data: ', author)
+            else:
+                if institution not in authors[author]['institutions']:
+                    authors[author]['institutions'].append(institution)
 
         # Take care of institutions
         institution_names_list=[]
@@ -386,7 +542,7 @@ def get_valid_country(country):
     print('Country: '+ country +' not in datbase' )
     return 'No country available'
 
-def scielo_wos_info():
+def scielo_info():
 
     info_dict = {}
 
@@ -409,19 +565,12 @@ def scielo_wos_info():
     info_dict['SO'] = 'Source'
     info_dict['LA'] = 'Language'
     info_dict['DT'] = 'Document Type'
+    info_dict['DE'] = 'English Author Keywords'
+    info_dict['X5'] = 'Spanish Author Keywords'
+    info_dict['Y5'] = 'Portuguese Author Keywords'
+    info_dict['Z5'] = 'Author Keywords (Other Languages)'
+
     '''
-        DE
-        English Author Keywords
-
-        X5
-        Spanish Author Keywords
-
-        Y5
-        Portuguese Author Keywords
-
-        Z5
-        Author Keywords (Other Languages)
-
         AB
         English Abstract
 
@@ -529,3 +678,82 @@ def scielo_wos_info():
 
     '''
     return info_dict
+
+'''
+WOS field tags from
+https://images.webofknowledge.com/images/help/WOS/hs_wos_fieldtags.html
+
+FN: 	File Name
+VR:     Version Number
+PT: 	Publication Type (J=Journal; B=Book; S=Series; P=Patent)
+AU: 	Authors
+AF:     Author Full Name
+BA:     Book Authors
+BF:     Book Authors Full Name
+CA:     Group Authors
+GP:     Book Group Authors
+BE:     Editors
+TI:     Document Title
+SO:     Publication Name
+SE:     Book Series Title
+BS:     Book Series Subtitle
+LA:     Language
+DT: 	Document Type
+CT: 	Conference Title
+CY:     Conference Date
+CL: 	Conference Location
+SP: 	Conference Sponsors
+HO: 	Conference Host
+DE: 	Author Keywords
+ID: 	Keywords Plus®
+AB:     Abstract
+C1: 	Author Address
+RP: 	Reprint Address
+EM: 	E-mail Address
+RI: 	ResearcherID Number
+OI: 	ORCID Identifier (Open Researcher and Contributor ID)
+FU: 	Funding Agency and Grant Number
+FX: 	Funding Text
+CR:     Cited References
+NR:     Cited Reference Count
+TC:     Web of Science Core Collection Times Cited Count
+Z9:     Total Times Cited Count (Web of Science Core Collection, Arabic Citation Index, BIOSIS Citation Index, Chinese Science Citation Database, Data Citation Index, Russian Science Citation Index, SciELO Citation Index)
+U1:     Usage Count (Last 180 Days)
+U2:     Usage Count (Since 2013)
+PU:     Publisher
+PI:     Publisher City
+PA:     Publisher Address
+SN:     International Standard Serial Number (ISSN)
+EI:     Electronic International Standard Serial Number (eISSN)
+BN:     International Standard Book Number (ISBN)
+J9:     29-Character Source Abbreviation
+JI:     ISO Source Abbreviation
+PD:     Publication Date
+PY: 	Year Published
+VL: 	Volume
+IS: 	Issue
+SI: 	Special Issue
+PN: 	Part Number
+SU: 	Supplement
+MA: 	Meeting Abstract
+BP: 	Beginning Page
+EP: 	Ending Page
+AR:     Article Number
+DI: 	Digital Object Identifier (DOI)
+D2: 	Book Digital Object Identifier (DOI)
+EA: 	Early access date
+EY: 	Early access year
+PG:     Page Count
+P2: 	Chapter Count (Book Citation Index)
+WC: 	Web of Science Categories
+SC: 	Research Areas
+GA: 	Document Delivery Number
+PM: 	PubMed ID
+UT: 	Accession Number
+OA:     Open Access Indicator
+HP:     ESI Hot Paper. Note that this field is valued only for ESI subscribers.
+HC:     ESI Highly Cited Paper. Note that this field is valued only for ESI subscribers.
+DA:     Date this report was generated.
+ER:     End of Record
+EF:     End of File
+'''
