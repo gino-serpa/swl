@@ -1,3 +1,4 @@
+from pprint import pprint
 import random
 
 def dict_sample(target_dict, n=2):
