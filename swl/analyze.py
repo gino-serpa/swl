@@ -139,3 +139,31 @@ def plot_region_papers_time(region, papers, institutions):
     plt.show()
 
     return
+
+
+def compare_growth_rates(papers1, papers2):
+
+    years=[]
+    for paper in papers1:
+        year = papers1[paper]['year']
+        years.append(year)
+    years1_papers_dict = Counter(years)
+
+    years=[]
+    for paper in papers2:
+        year = papers2[paper]['year']
+        years.append(year)
+    years2_papers_dict = Counter(years)
+
+    years =  sorted(list(years1_papers_dict.keys()))
+    years=years[0:-1]
+    papers_py1 = [years1_papers_dict[year] for year in years]
+    papers_py2 = [years2_papers_dict[year] for year in years]
+    ratio   = [np1/np2 for (np1,np2) in zip(papers_py1,papers_py2)]
+    #papers_per_year = [years_papers_dict[year] for year in years]
+    #plt.plot(years,papers_per_year)
+    plt.plot(years, ratio)
+
+    plt.show()
+
+    return
