@@ -408,6 +408,11 @@ def ingest_wos_file(file_name, encoding):
     return df
 
 def get_scielo_dicts(df):
+    '''
+
+    Create the scielo dictionaries from the scielo data frame
+
+    '''
     authors = {}
     papers  = {}
     institutions = {}
@@ -417,6 +422,7 @@ def get_scielo_dicts(df):
         id            = row['accession number']
         title         = row['title']
         spanish_title = row['spanish title']
+        doi           = row['doi']
         portuguese_title = row['portuguese title']
         other_language_title = row['other language title']
         source = row['source']
@@ -435,6 +441,7 @@ def get_scielo_dicts(df):
         papers[id] = {
                'title':title,
                'authors': authors_list,
+               'doi':doi,
                'year': year,
                'spanish title': spanish_title,
                'portuguese title': portuguese_title,
@@ -482,6 +489,11 @@ def get_scielo_dicts(df):
     return authors, papers, institutions
 
 def get_wos_dicts(df):
+    '''
+
+    Create the wos dictionaries from the wos data frame
+
+    '''
     authors = {}
     papers  = {}
     institutions = {}
@@ -490,6 +502,7 @@ def get_wos_dicts(df):
         # Extract fields
         id     = row['accession number']
         title  = row['title']
+        doi    = row['doi']
         source = row['source']
         language = row['language']
         english_author_keywords = \
@@ -507,6 +520,7 @@ def get_wos_dicts(df):
                'title':title,
                'authors': authors_list,
                'year': year,
+               'doi': doi,
                'source': source,
                'language': language,
                'english author keywords':english_author_keywords

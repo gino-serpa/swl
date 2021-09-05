@@ -1,7 +1,7 @@
 from pprint import pprint
 import random
 
-def dict_sample(target_dict, n=2):
+def sample_dict(target_dict, n=2):
     target_keys = list(target_dict.keys())
     random_keys = random.sample(target_keys,n)
     for key in random_keys:
