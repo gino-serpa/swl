@@ -167,3 +167,67 @@ def compare_growth_rates(papers1, papers2):
     plt.show()
 
     return
+
+
+def get_authors_history(author_int_list,
+                        authors_wos, papers_wos,
+                        authors_scielo, papers_scielo):
+
+    authors_history = {}
+    for author in author_int_list:
+        authors_history[author] =  get_author_individual_history(author,
+                                                                 authors_wos,
+                                                                 papers_wos,
+                                                                 authors_scielo,
+                                                                 papers_scielo)
+
+    return authors_history
+
+def get_author_individual_history(author,
+                                  authors_wos, papers_wos,
+                                  authors_scielo, papers_scielo):
+    history  = {'wos':{},'scielo':{},'overlap':{},
+                'wos_doi':[], 'scielo_doi':[]}
+
+    # First the wos DOI's
+    for paper in authors_wos[author]['papers_list']:
+        doi = papers_wos[paper]['doi']
+        history['wos_doi'].append(doi)
+
+    # Now the scielo DOI's
+    for paper in authors_scielo[author]['papers_list']:
+        doi = papers_scielo[paper]['doi']
+        history['scielo_doi'].append(doi)
+
+    # Now for the keys [wos, scielo, overlap]
+
+    # Check the scielo papers
+    for paper in authors_scielo[author]['papers_list']:
+        doi = papers_scielo[paper]['doi']
+        year= papers_scielo[paper]['year']
+
+        # Check for overlap
+        if doi in history['wos_doi']:
+            if year in history['overlap']:
+                history['overlap'][year]+=1
+            else:
+                history['overlap'][year]=1
+        else:
+            if year in history['scielo']:
+                history['scielo'][year]+=1
+            else:
+                history['scielo'][year]=1
+
+    # Check the WOS papers
+    for paper in authors_wos[author]['papers_list']:
+        doi = papers_wos[paper]['doi']
+        year = papers_wos[paper]['year']
+
+        # Check for overlap
+        if doi not in history['scielo_doi']:
+            if year in history['wos']:
+                history['wos'][year] += 1
+            else:
+                history['wos'][year] =1
+                   
+    return history
