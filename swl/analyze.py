@@ -229,5 +229,46 @@ def get_author_individual_history(author,
                 history['wos'][year] += 1
             else:
                 history['wos'][year] =1
-                   
+
     return history
+
+def get_global_history(history):
+
+    global_history ={'scielo': {}, 'wos':{}, 'overlap':{}}
+
+    for author in history:
+            # get time0:
+            years = list(history[author]['scielo'].keys())+\
+                    list(history[author]['overlap'].keys())+\
+                    list(history[author]['wos'].keys())
+            time0 = min(years)
+            #print(author)
+            #print(history[author])
+            #print(time0)
+
+            # Construct shifted paper count dicts
+            scielo_shifted_h = {key-time0:value for key,value in history[author]['scielo'].items()}
+            overlap_shifted_h = {key-time0:value for key,value in history[author]['overlap'].items()}
+            wos_shifted_h = {key-time0:value for key,value in history[author]['wos'].items()}
+
+            # Accumulate the shifted dictionaries in the glabal history
+            # scielo
+            for key, value in scielo_shifted_h.items():
+                if key in global_history['scielo']:
+                    global_history['scielo'][key]+=value
+                else:
+                    global_history['scielo'][key]=value
+            # overlap
+            for key, value in overlap_shifted_h.items():
+                if key in global_history['overlap']:
+                    global_history['overlap'][key]+=value
+                else:
+                    global_history['overlap'][key]=value
+            # wos
+            for key, value in wos_shifted_h.items():
+                if key in global_history['wos']:
+                    global_history['wos'][key]+=value
+                else:
+                    global_history['wos'][key]=value
+
+    return global_history
